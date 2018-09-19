@@ -8,37 +8,49 @@
 #include "PN532.h"
 #include "PN532_HSU.h"
 
+#include "Adafruit_INA219.h"
+
 #include "NfcAdapter.h"
 #include "NdefMessage.h"
 #include "MifareUltralight.h"
 
 /*  Device settings  */
 const char  *uuid = "002:001:001";
-const char  *sessionId;
+char        *sessionId = NULL;
 
 /*  WiFi settings  */
 const char  *ssid = "Livebox-7AA1";
-const char  *password = "";
+const char  *password = "Campus_Plex";
 
 /*  PN532 settings  */
 PN532_HSU   pn532hsu(Serial2);
 NfcAdapter  nfc(pn532hsu);
-NdefMessage message = NdefMessage();
+
+/*  INA219 settings */
+Adafruit_INA219     ina219;
+double	shuntvoltage = 0;
+double	busvoltage = 0;
+double	current_mA = 0;
+double	loadvoltage = 0;
+double	energy = 0;
 
 /*  API settings  */
 HTTPClient  http;
 const char  *apiKey = "5b706bfd24ee8498b7f48f88";
 
 
-const char      *get_session_id()
+int                         get_session_id()
 {
     StaticJsonBuffer<256>   jsonUUIDBuffer;
     JsonObject              &moduleUUID = jsonUUIDBuffer.createObject();
     JsonArray               &UUIDarray = moduleUUID.createNestedArray("UUID");
     char                    buffer[256];
     int                     respCode;
-    const char              *id;
 
+    if (sessionId) {
+        free(sessionId);
+        sessionId = NULL;
+    }
     moduleUUID["apiKey"] = apiKey;
     UUIDarray.add(uuid);
     moduleUUID.printTo(buffer, 256);
@@ -49,15 +61,21 @@ const char      *get_session_id()
         String response = http.getString();
         // Serial.println(response);
         JsonObject &root = jsonUUIDBuffer.parseObject(response);
-        id = root["moduleIDS"][0];
+        sessionId = (char *)malloc(sizeof(char) * 32);
+        if (!sessionId)
+            return (1);
+        strcpy(sessionId, root["moduleIDS"][0]);
+        respCode = 0;
     }
     else {
-        id = NULL;
         Serial.print("Failed to get the session ID. Code ");
         Serial.println(respCode);
+        return (1);
     }
+    // Serial.print("get_session_id(): ");
+    // Serial.println(sessionId);
     http.end();
-    return (id);
+    return (0);
 }
 
 void    send_production(unsigned int value)
@@ -69,27 +87,25 @@ void    send_production(unsigned int value)
     int                     respCode;
     const char              *code;
 
-    Serial.println((long unsigned int)&production);
-    Serial.println((long unsigned int)&device);
-
     production["apiKey"] = apiKey;
     device[uuid] = value;
     production.printTo(buffer, 256);
+    Serial.print("Sending: ");
     Serial.println(buffer);
     http.begin("http://91.121.155.83:10000/module/production/send");
     http.addHeader("Content-Type", "application/json");
     if ((respCode = http.POST(buffer)) == 200) {
         String response = http.getString();
         Serial.println(response);
-        JsonObject &root = jsonProdBuffer.parseObject(response);
-        code = root["code"];
+        JsonObject &jresp = jsonProdBuffer.parseObject(response);
+        code = jresp["code"];
         // if (strcmp(code, "GENERIC_OK") != 0) {
         //     Serial.println("Error");
         // }
         // else {
         //     Serial.println(code);
         // }
-        Serial.println(code);
+        // Serial.println(code);
     }
     else {
         Serial.print("Production send failed. Code ");
@@ -98,39 +114,67 @@ void    send_production(unsigned int value)
     http.end();
 }
 
+int     write_session_id()
+{
+    NdefMessage message = NdefMessage();
+
+    delay(100);
+    nfc.begin();
+    Serial.print("write_session_id: ");
+    Serial.println(sessionId);
+    message.addTextRecord(sessionId);
+    if (nfc.tagPresent(5000)) {
+        nfc.format();
+        nfc.erase();
+        nfc.write(message);
+        Serial.println("Tag written");
+    }
+    else {
+        Serial.println("Tag was not present to write session ID");
+        return (1);
+    }
+    return (0);
+}
+
+void	ina219values() {
+	shuntvoltage = ina219.getShuntVoltage_mV();
+    Serial.println(shuntvoltage);
+	busvoltage = ina219.getBusVoltage_V();
+    Serial.println(busvoltage);
+	current_mA = ina219.getCurrent_mA();
+    Serial.println(current_mA);
+	loadvoltage = busvoltage + (shuntvoltage / 1000);
+    Serial.println(loadvoltage);
+	energy += loadvoltage * current_mA / 3600;
+    Serial.println(energy);
+}
+
 void    setup()
 {
-    // nfc.begin();
     Serial.begin(115200);
+
+    ina219.begin();
+
     Serial.println("--- Centrale Fitness Beta Module [Test] ---");
     delay(1000);
+    Serial.print("Connecting to the WiFi");
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.print('.');
         delay(1000);
+    }
     Serial.print("Connected to the WiFi network ");
     Serial.println(ssid);
-
-    sessionId = get_session_id();
-    while (sessionId == NULL)
+    while (get_session_id())
         delay(1000);
-
-    // moduleUUID.printTo(stringBuffer);
-    // Serial.println(stringBuffer.c_str());
-    // message.addTextRecord("Centrale Fitness");
-    nfc.begin();
+    while (write_session_id())
+        delay(1000);
+    Serial.println("Setup done.");
 }
 
 void loop()
 {
-    send_production(1);
-    if (nfc.tagPresent(5000)) {
-        Serial.println("Tag is present");
-        if (nfc.write(message)) {
-            Serial.println("Write success!");
-        }
-        else {
-            Serial.println("Write failed :(");
-        }
-    }
+    ina219values();
+    send_production((loadvoltage * current_mA) / 1000);
     delay(1000);
 }
