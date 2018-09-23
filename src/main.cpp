@@ -19,24 +19,27 @@ const char  *uuid = "002:001:001";
 char        *sessionId = NULL;
 
 /*  WiFi settings  */
-const char  *ssid = "Livebox-7AA1";
-const char  *password = "Campus_Plex";
+const char  *ssid = "Centrale_Fitness";
+const char  *password = "iswhatyouneed";
 
 /*  PN532 settings  */
 PN532_HSU   pn532hsu(Serial2);
 NfcAdapter  nfc(pn532hsu);
 
 /*  INA219 settings */
+
+#ifdef INA219_CONNECTED
 Adafruit_INA219     ina219;
 double	shuntvoltage = 0;
 double	busvoltage = 0;
 double	current_mA = 0;
 double	loadvoltage = 0;
 double	energy = 0;
+#endif
 
 /*  API settings  */
 HTTPClient  http;
-const char  *apiKey = "5b706bfd24ee8498b7f48f88";
+const char  *apiKey = "5b706bfd24ee8498b7f48f89";
 
 
 int                         get_session_id()
@@ -114,28 +117,40 @@ void    send_production(unsigned int value)
     http.end();
 }
 
+bool                nfc_write(const char *buffer, bool must_write = true, bool check = true)
+{
+    NdefMessage     message = NdefMessage();
+    NfcTag          tag;
+    bool            success = false;
+
+    message.addTextRecord(sessionId);
+    do  {
+        if (nfc.tagPresent(5000))
+            success = nfc.write(message);
+            if (!success)
+                Serial.println("Write failed");
+        delay(100);
+    } while (must_write && !success);
+    if (check) {
+        while (!nfc.tagPresent(5000))
+            delay(100);
+        tag = nfc.read();
+        Serial.print("(New) value on tag: ");
+        tag.print();
+    }
+    return (success);
+}
+
 int     write_session_id()
 {
-    NdefMessage message = NdefMessage();
-
-    delay(100);
-    nfc.begin();
     Serial.print("write_session_id: ");
     Serial.println(sessionId);
-    message.addTextRecord(sessionId);
-    if (nfc.tagPresent(5000)) {
-        nfc.format();
-        nfc.erase();
-        nfc.write(message);
-        Serial.println("Tag written");
-    }
-    else {
-        Serial.println("Tag was not present to write session ID");
-        return (1);
-    }
+    nfc_write(sessionId, true, false);
+    Serial.println("write_session_id done");
     return (0);
 }
 
+#ifdef INA219_CONNECTED
 void	ina219values() {
 	shuntvoltage = ina219.getShuntVoltage_mV();
     Serial.println(shuntvoltage);
@@ -148,13 +163,18 @@ void	ina219values() {
 	energy += loadvoltage * current_mA / 3600;
     Serial.println(energy);
 }
+#endif
 
 void    setup()
 {
     Serial.begin(115200);
 
+#ifdef INA219_CONNECTED
     ina219.begin();
+#endif
 
+    nfc.begin();
+    delay(3000);
     Serial.println("--- Centrale Fitness Beta Module [Test] ---");
     delay(1000);
     Serial.print("Connecting to the WiFi");
@@ -170,11 +190,15 @@ void    setup()
     while (write_session_id())
         delay(1000);
     Serial.println("Setup done.");
+    delay(10000);
 }
 
 void loop()
 {
+    delay(1000);
+#ifdef INA219_CONNECTED
     ina219values();
     send_production((loadvoltage * current_mA) / 1000);
-    delay(1000);
+#endif
+    send_production(random(0, 10));
 }
