@@ -18,7 +18,7 @@
 #include "PN532_SPI.h"
 #endif
 
-#include "Adafruit_INA219.h"
+#include "INA219.h"
 
 #include "NfcAdapter.h"
 #include "NdefMessage.h"
@@ -27,7 +27,7 @@
 /*  Device settings  */
 const char  *uuid = "002:001:001";
 uint8_t     uid[3] = {0x12, 0x34, 0x56};
-uint8_t     ndefBuf[128];
+uint8_t     ndefBuf[64];
 NdefMessage message;
 char        *sessionId = NULL;
 
@@ -188,7 +188,7 @@ void	ina219values() {
 void    setup()
 {
     int     encodedSize;
-    memset(ndefBuf, 0, 128);
+    memset(ndefBuf, 0, 64);
     Serial.begin(115200);
 
 #ifdef INA219_CONNECTED
@@ -234,5 +234,14 @@ void loop()
     send_production((loadvoltage * current_mA) / 1000);
 #endif
     // send_production(random(0, 10));
+    // nfc.setNdefFile(ndefBuf, 22);
     Serial.println(nfc.emulate(5000));
+    if(nfc.writeOccured()){
+       Serial.println("\nWrite occured !");
+       uint8_t* tag_buf;
+       uint16_t length;
+       nfc.getContent(&tag_buf, &length);
+       NdefMessage msg = NdefMessage(tag_buf, length);
+       msg.print();
+    }
 }
