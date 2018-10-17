@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -7,18 +8,10 @@
 #include "ArduinoJson.h"
 
 #include "PN532.h"
-#include "emulatetag.h"
-#define PN532_USE_SPI
-
-#ifdef PN532_USE_HSU
-#include "PN532_HSU.h"
-#endif
-
-#ifdef PN532_USE_SPI
 #include "PN532_SPI.h"
-#endif
+#include "emulatetag.h"
 
-#include "INA219.h"
+#include "Adafruit_INA219.h"
 
 #include "NfcAdapter.h"
 #include "NdefMessage.h"
@@ -36,26 +29,13 @@ const char  *ssid = "Centrale_Fitness";
 const char  *password = "iswhatyouneed";
 
 /*  PN532 settings  */
-// PN532_HSU   pn532hsu(Serial2);
-#ifdef PN532_USE_SPI
 PN532_SPI   pn532(SPI, 5);
-#endif
-#ifdef PN532_USE_HSU
-PN532_HSU   pn532;
-#endif
-// NfcAdapter  nfc(pn532);
 EmulateTag  nfc(pn532);
 
 /*  INA219 settings */
-
-#ifdef INA219_CONNECTED
 Adafruit_INA219     ina219;
-double	shuntvoltage = 0;
-double	busvoltage = 0;
-double	current_mA = 0;
-double	loadvoltage = 0;
-double	energy = 0;
-#endif
+double	            loadvoltage = 0;
+double              curr_watts = 0;
 
 /*  API settings  */
 HTTPClient  http;
@@ -170,30 +150,18 @@ void    send_production(unsigned int value)
 //     return (0);
 // }
 
-#ifdef INA219_CONNECTED
 void	ina219values() {
-	shuntvoltage = ina219.getShuntVoltage_mV();
-    Serial.println(shuntvoltage);
-	busvoltage = ina219.getBusVoltage_V();
-    Serial.println(busvoltage);
-	current_mA = ina219.getCurrent_mA();
-    Serial.println(current_mA);
-	loadvoltage = busvoltage + (shuntvoltage / 1000);
-    Serial.println(loadvoltage);
-	energy += loadvoltage * current_mA / 3600;
-    Serial.println(energy);
+	loadvoltage = ina219.getBusVoltage_V() + (ina219.getShuntVoltage_mV() / 1000);
+    curr_watts = (loadvoltage * ina219.getCurrent_mA()) / 1000;
+    Serial.println("Current: " + String(curr_watts) + "W");
 }
-#endif
 
 void    setup()
 {
     int     encodedSize;
     memset(ndefBuf, 0, 64);
-    Serial.begin(115200);
-
-#ifdef INA219_CONNECTED
+    Serial.begin(9600);
     ina219.begin();
-#endif
 
     // nfc.begin();
     delay(3000);
@@ -229,10 +197,8 @@ void    setup()
 void loop()
 {
     delay(1000);
-#ifdef INA219_CONNECTED
     ina219values();
-    send_production((loadvoltage * current_mA) / 1000);
-#endif
+    //send_production((loadvoltage * current_mA) / 1000);
     // send_production(random(0, 10));
     // nfc.setNdefFile(ndefBuf, 22);
     Serial.println(nfc.emulate(5000));
