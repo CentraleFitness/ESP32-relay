@@ -118,7 +118,7 @@ void LedRing::breath(uint8_t r, uint8_t g, uint8_t b)
             strip.setPixelColor(j, strip.Color(r *  i / 255, g * i / 255, b * i / 255));
         }
         strip.show();
-        delay(10);
+        delay(15);
     }
     for (uint8_t i = 225; i > 0; --i) {
         for(uint16_t j = 0; j < strip.numPixels(); ++j) {
@@ -126,6 +126,8 @@ void LedRing::breath(uint8_t r, uint8_t g, uint8_t b)
         strip.show();
         delay(10);
     }
+    this->colorWipe(0, 0);
+    this->strip.show();
 }
 
 

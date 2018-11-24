@@ -36,7 +36,15 @@ int           messageSize = 0;
 
 void  emulate_session_id()
 {
-  nfc.emulate(5000);
+  Serial.println("Emualating for 5000ms...");
+  if (nfc.emulate(5000))
+  {
+    Serial.println("Write occured");
+  }
+  else
+  {
+    Serial.println("Timeout");
+  }
 }
 
 void setup() {
