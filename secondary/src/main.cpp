@@ -3,6 +3,7 @@
 #include <PN532_SPI.h>
 #include <emulatetag.h>
 #include <NdefMessage.h>
+#include <NfcAdapter.h>
 #include "ledring.hpp"
 #include "nfcboard.hpp"
 
@@ -23,33 +24,40 @@ Adafruit_NeoPixel   strip = Adafruit_NeoPixel(24, LED_DIN, NEO_GRB + NEO_KHZ800)
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
-NfcBoard        nfcBoard;
 
 LedRing        led(strip);
 PN532_SPI      pn532(SPI, PN532_SS);
-EmulateTag      nfc(pn532);
+
 
 uint8_t       uid[3] = {0x12, 0x34, 0x56};
 uint8_t       ndefBuf[120];
 NdefMessage   message = NdefMessage();
 int           messageSize = 0;
 
-void  emulate_session_id()
+bool  write_session_id(String session_id)
 {
-  Serial.println("Emualating for 5000ms...");
-  if (nfc.emulate(5000))
-  {
-    Serial.println("Write occured");
+  NfcBoard        nfcBoard;
+  NfcAdapter    nfc(pn532);
+  NdefMessage   message;
+
+  nfcBoard.turn_on();
+  nfc.begin();
+  message.addTextRecord(session_id);
+  if (nfc.tagPresent(5000)) {
+    for (uint8_t i = 0; !nfc.write(message); i += 1) {
+      if (i == 5) {
+        Serial.println("Write failed after 5 attemtps");
+        return false;
+      }
+    }
   }
-  else
-  {
-    Serial.println("Timeout");
-  }
+  return true;
 }
 
-void setup() {
-  Serial.begin(9600);
-  Serial.print("Booting...");
+void  emulate_session_id()
+{
+  NfcBoard        nfcBoard;
+  EmulateTag      nfc(pn532);
 
   nfcBoard.turn_on();
   Serial.println("NFC ON");
@@ -60,6 +68,21 @@ void setup() {
   nfc.setNdefFile(ndefBuf, messageSize);
   nfc.setUid(uid);
   nfc.init();
+  Serial.println("Emualating for 5000ms...");
+  if (nfc.emulate(5000)) {
+    Serial.println("Write occured");
+  }
+  else {
+    Serial.println("Timeout");
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  Serial.print("Booting...");
+  Serial1.println("ON");
+
   delay(100);
 
   Serial.println("NFC initialized");
@@ -76,7 +99,9 @@ void loop()
 //   Serial.println("Program 1");
   led.breath(0xff, 0xff, 0xff);
 
-  emulate_session_id();
+  //emulate_session_id();
+  write_session_id("0123456789ABCDEF");
+  Serial1.println("Salut");
 
 //   led.colorWipe(strip.Color(255, 0, 0), 50); // Red
 //   led.colorWipe(strip.Color(0, 255, 0), 50); // Green
