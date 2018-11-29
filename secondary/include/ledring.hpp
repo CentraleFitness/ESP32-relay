@@ -22,6 +22,8 @@ class   LedRing: public Relay
         void        theaterChaseRainbow(uint8_t);
         void        breath(uint8_t, uint8_t, uint8_t);
         uint32_t    Wheel(byte);
+        uint8_t     getOperation(String);
+        void        operate(uint8_t);
 
         LedRing(Adafruit_NeoPixel &);
         ~LedRing();

@@ -8,20 +8,27 @@
 class   Relay
 {
     private:
-        uint8_t     pin;
+        uint8_t     mPin;
+        bool        mStatus;
 
     public:
-        void    turn_on() {
-            digitalWrite(this->pin, HIGH);
-            delay(50);
+        void    turn_on(void) {
+            digitalWrite(this->mPin, HIGH);
+            this->mStatus = true;
+            delay(10);
         };
-        void    turn_off() {
-            digitalWrite(this->pin, LOW);
-            delay(50);
+        void    turn_off(void) {
+            digitalWrite(this->mPin, LOW);
+            this->mStatus = false;
+            delay(10);
         };
+        bool    status(void) {
+            return (this->mStatus);
+        }
         Relay(uint8_t pin) {
-            this->pin = pin;
-            pinMode(this->pin, OUTPUT);
+            this->mStatus = false;
+            this->mPin = pin;
+            pinMode(this->mPin, OUTPUT);
         };
         ~Relay() {
             this->turn_off();

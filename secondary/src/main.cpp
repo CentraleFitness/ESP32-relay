@@ -25,18 +25,19 @@ Adafruit_NeoPixel   strip = Adafruit_NeoPixel(24, LED_DIN, NEO_GRB + NEO_KHZ800)
 // on a live circuit...if you must, connect GND first.
 
 
-LedRing        led(strip);
-PN532_SPI      pn532(SPI, PN532_SS);
+LedRing         led(strip);
+uint8_t         led_prog = 0;
 
+PN532_SPI       pn532(SPI, PN532_SS);
 
-uint8_t       uid[3] = {0x12, 0x34, 0x56};
-uint8_t       ndefBuf[120];
-NdefMessage   message = NdefMessage();
-int           messageSize = 0;
+uint8_t         uid[3] = {0x12, 0x34, 0x56};
+uint8_t         ndefBuf[120];
+NdefMessage     message = NdefMessage();
+int             messageSize = 0;
 
-bool  write_session_id(String session_id)
+bool            write_session_id(String session_id)
 {
-  NfcBoard        nfcBoard;
+  NfcBoard      nfcBoard;
   NfcAdapter    nfc(pn532);
   NdefMessage   message;
 
@@ -54,7 +55,7 @@ bool  write_session_id(String session_id)
   return true;
 }
 
-void  emulate_session_id()
+void              emulate_session_id()
 {
   NfcBoard        nfcBoard;
   EmulateTag      nfc(pn532);
@@ -77,50 +78,42 @@ void  emulate_session_id()
   }
 }
 
-void setup() {
+void      setup()
+{
   Serial.begin(9600);
   Serial1.begin(9600);
-  Serial.print("Booting...");
-  Serial1.println("ON");
-
-  delay(100);
-
-  Serial.println("NFC initialized");
-
+  Serial1.println("INIT:ON");
   led.turn_on();
-  Serial.println("LED ON");
   led.begin();
-  led.show(); // Initialize all pixels to 'off'
+  led.show();
+  led.rainbow(10);
+  led.colorWipe(0xFFFFFF, 0);
+
   Serial.println("Done!");
+
 }
 
-void loop()
+
+void      loop()
 {
-//   Serial.println("Program 1");
-  led.breath(0xff, 0xff, 0xff);
+  String  incoming_type;
+  String  incoming_cmd;
 
-  //emulate_session_id();
-  write_session_id("0123456789ABCDEF");
-  Serial1.println("Salut");
-
-//   led.colorWipe(strip.Color(255, 0, 0), 50); // Red
-//   led.colorWipe(strip.Color(0, 255, 0), 50); // Green
-//   led.colorWipe(strip.Color(0, 0, 255), 50); // Blue
-// // //colorWipe(strip.Color(0, 0, 0, 255), 50); // White RGBW
-// //   // Send a theater pixel chase in...
-// //   Serial.println("Program 3");
-//   led.theaterChase(strip.Color(127, 127, 127), 50); // White
-// //   Serial.println("Program 4");
-//   led.theaterChase(strip.Color(127, 0, 0), 50); // Red
-// //   Serial.println("Program 5");
-//   led.theaterChase(strip.Color(0, 0, 127), 50); // Blue
-
-// //   Serial.println("Program 6");
-// //   led.rainbow(20);
-// //   Serial.println("Program 7");
-// //   led.rainbowCycle(20);
-// //   Serial.println("Program 8");
-//   led.theaterChaseRainbow(50);
-
-//   led.rainbowCycle(20);
+  if (Serial1.available() > 0) {
+    incoming_type = Serial1.readStringUntil(';');
+    Serial1.println(incoming_type);
+    if (incoming_type == "LED") {
+      incoming_cmd = Serial1.readString();
+      led_prog = led.getOperation(incoming_cmd);
+      Serial1.println("ACK:OK");
+    } else if (incoming_type == "NFC") {
+      incoming_cmd = Serial1.readString();
+      write_session_id(incoming_cmd);
+      Serial1.println("ACK:OK");
+    }
+  }
+  if (led_prog != 0) {
+    led.operate(led_prog);
+  }
+  delay(10);
 }
