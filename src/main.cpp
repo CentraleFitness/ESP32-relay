@@ -7,30 +7,16 @@
 
 #include "ArduinoJson.h"
 
-#include "PN532.h"
-#include "PN532_SPI.h"
-#include "emulatetag.h"
+#include <Adafruit_INA219.h>
 
-#include "Adafruit_INA219.h"
-
-#include "NfcAdapter.h"
-#include "NdefMessage.h"
-#include "MifareUltralight.h"
-
-/*  Device settings  */
-const char  *uuid = "002:001:001";
-uint8_t     uid[3] = {0x12, 0x34, 0x56};
-uint8_t     ndefBuf[64];
-NdefMessage message;
-char        *sessionId = NULL;
+#include "secondary.hpp"
 
 /*  WiFi settings  */
 const char  *ssid = "Centrale_Fitness";
 const char  *password = "iswhatyouneed";
 
-/*  PN532 settings  */
-PN532_SPI   pn532(SPI, 5);
-EmulateTag  nfc(pn532);
+/* Secondary device settings */
+Secondary   secondary;
 
 /*  INA219 settings */
 Adafruit_INA219     ina219;
@@ -39,7 +25,9 @@ double              curr_watts = 0;
 
 /*  API settings  */
 HTTPClient  http;
-const char  *apiKey = "5b706bfd24ee8498b7f48f89";
+const char  *apiKey = "5bf72d7efb56e5539cb102ee";
+char        *sessionId;
+const char  *uuid = "002:001:001";
 
 
 int                         get_session_id()
@@ -117,39 +105,6 @@ void    send_production(double value)
     http.end();
 }
 
-// bool                nfc_write(const char *buffer, bool must_write = true, bool check = true)
-// {
-//     NdefMessage     message = NdefMessage();
-//     NfcTag          tag;
-//     bool            success = false;
-
-//     message.addTextRecord(sessionId);
-//     do  {
-//         if (nfc.tagPresent(5000))
-//             success = nfc.write(message);
-//             if (!success)
-//                 Serial.println("Write failed");
-//         delay(100);
-//     } while (must_write && !success);
-//     if (check) {
-//         while (!nfc.tagPresent(5000))
-//             delay(100);
-//         tag = nfc.read();
-//         Serial.print("(New) value on tag: ");
-//         tag.print();
-//     }
-//     return (success);
-// }
-
-// int     write_session_id()
-// {
-//     Serial.print("write_session_id: ");
-//     Serial.println(sessionId);
-//     nfc_write(sessionId, true, false);
-//     Serial.println("write_session_id done");
-//     return (0);
-// }
-
 void	ina219values() {
 	loadvoltage = ina219.getBusVoltage_V() + (ina219.getShuntVoltage_mV() / 1000);
     curr_watts = (loadvoltage * ina219.getCurrent_mA()) / 1000;
@@ -158,10 +113,10 @@ void	ina219values() {
 
 void    setup()
 {
-    int     encodedSize;
-    memset(ndefBuf, 0, 64);
-    Serial.begin(9600);
     ina219.begin();
+    secondary.turn_on();
+    secondary.setLEDProgram(5);
+
 
     // nfc.begin();
     delay(3000);
@@ -180,16 +135,6 @@ void    setup()
     // while (write_session_id())
     //     delay(1000);
 
-    message = NdefMessage();
-    message.addTextRecord("CentraleFitness");
-    encodedSize = message.getEncodedSize();
-    Serial.print("Encoded size: ");
-    Serial.println(encodedSize);
-    message.encode(ndefBuf);
-    nfc.setNdefFile(ndefBuf, encodedSize);
-    nfc.setUid(uid);
-    nfc.init();
-
     Serial.println("Setup done.");
     delay(1000);
     Serial.print("Connecting to the WiFi");
@@ -202,8 +147,6 @@ void    setup()
     Serial.println(ssid);
     while (get_session_id())
         delay(1000);
-    while (write_session_id())
-        delay(1000);
     Serial.println("Setup done.");
     //delay(10000);
 }
@@ -215,13 +158,4 @@ void loop()
     //send_production((loadvoltage * current_mA) / 1000);
     // send_production(random(0, 10));
     // nfc.setNdefFile(ndefBuf, 22);
-    Serial.println(nfc.emulate(5000));
-    if(nfc.writeOccured()){
-       Serial.println("\nWrite occured !");
-       uint8_t* tag_buf;
-       uint16_t length;
-       nfc.getContent(&tag_buf, &length);
-       NdefMessage msg = NdefMessage(tag_buf, length);
-       msg.print();
-    }
 }
