@@ -82,15 +82,12 @@ void      setup()
 {
   Serial.begin(9600);
   Serial1.begin(9600);
-  Serial1.println("INIT:ON");
+  Serial1.println("INFO:ON");
   led.turn_on();
   led.begin();
   led.show();
   led.rainbow(10);
   led.colorWipe(0xFFFFFF, 0);
-
-  Serial.println("Done!");
-
 }
 
 
@@ -100,7 +97,7 @@ void      loop()
   String  incoming_cmd;
 
   if (Serial1.available() > 0) {
-    incoming_type = Serial1.readStringUntil(';');
+    incoming_type = Serial1.readStringUntil(':');
     Serial1.println(incoming_type);
     if (incoming_type == "LED") {
       incoming_cmd = Serial1.readString();
