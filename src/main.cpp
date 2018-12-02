@@ -16,7 +16,8 @@ const char  *ssid = "Centrale_Fitness";
 const char  *password = "iswhatyouneed";
 
 /* Secondary device settings */
-Secondary   secondary;
+HardwareSerial      HSerial(1);
+Secondary           secondary(&HSerial);
 
 /*  INA219 settings */
 Adafruit_INA219     ina219;
@@ -76,7 +77,7 @@ void    send_production(double value)
     JsonObject              &device = production.createNestedObject("production");
     char                    buffer[256];
     int                     respCode;
-    const char              *code;
+    // const char              *code;
 
     production["apiKey"] = apiKey;
     device[uuid] = value;
@@ -89,7 +90,7 @@ void    send_production(double value)
         String response = http.getString();
         Serial.println(response);
         JsonObject &jresp = jsonProdBuffer.parseObject(response);
-        code = jresp["code"];
+        // code = jresp["code"];
         // if (strcmp(code, "GENERIC_OK") != 0) {
         //     Serial.println("Error");
         // }
@@ -105,57 +106,56 @@ void    send_production(double value)
     http.end();
 }
 
-void	ina219values() {
+void	read_ina219_values() {
 	loadvoltage = ina219.getBusVoltage_V() + (ina219.getShuntVoltage_mV() / 1000);
     curr_watts = (loadvoltage * ina219.getCurrent_mA()) / 1000;
+    if (curr_watts < 0.01)
+        curr_watts = 0;
     Serial.println("Current: " + String(curr_watts) + "W");
 }
 
 void    setup()
 {
+    Serial.begin(9600);
+
     ina219.begin();
     secondary.turn_on();
+    while (!secondary.isOn())
+        delay(50);
     secondary.setLEDProgram(5);
-
-
-    // nfc.begin();
-    delay(3000);
+    // delay(3000);
     Serial.println("--- Centrale Fitness Beta Module [Test] ---");
-    // delay(1000);
-    // Serial.print("Connecting to the WiFi");
-    // WiFi.begin(ssid, password);
-    // while (WiFi.status() != WL_CONNECTED) {
-    //     Serial.print('.');
-    //     delay(1000);
-    // }
-    // Serial.print("Connected to the WiFi network ");
-    // Serial.println(ssid);
-    // while (get_session_id())
-    //     delay(1000);
-    // while (write_session_id())
-    //     delay(1000);
 
-    Serial.println("Setup done.");
-    delay(1000);
+    // delay(1000);
+
     Serial.print("Connecting to the WiFi");
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print('.');
         delay(1000);
     }
+
     Serial.print("Connected to the WiFi network ");
     Serial.println(ssid);
+
     while (get_session_id())
         delay(1000);
-    Serial.println("Setup done.");
+    Serial.print("Session id: ");
+    Serial.println(sessionId);
+
+    while (!secondary.setNFCId(sessionId))
+        delay(50);
+    Serial.println("Session Id wrote");
+    secondary.setLEDProgram(9);
+
     //delay(10000);
 }
 
 void loop()
 {
     delay(1000);
-    ina219values();
-    //send_production((loadvoltage * current_mA) / 1000);
+    read_ina219_values();
+    send_production(curr_watts);
     // send_production(random(0, 10));
     // nfc.setNdefFile(ndefBuf, 22);
 }

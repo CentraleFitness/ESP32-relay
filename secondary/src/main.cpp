@@ -82,11 +82,12 @@ void      setup()
 {
   Serial.begin(9600);
   Serial1.begin(9600);
-  Serial1.println("INFO:ON");
+  Serial1.clearWriteError();
+  Serial1.flush();
+  Serial1.print("INFO:ON");
   led.turn_on();
   led.begin();
   led.show();
-  led.rainbow(10);
   led.colorWipe(0xFFFFFF, 0);
 }
 
@@ -98,15 +99,14 @@ void      loop()
 
   if (Serial1.available() > 0) {
     incoming_type = Serial1.readStringUntil(':');
-    Serial1.println(incoming_type);
     if (incoming_type == "LED") {
       incoming_cmd = Serial1.readString();
       led_prog = led.getOperation(incoming_cmd);
-      Serial1.println("ACK:OK");
+      Serial1.print("ACK:OK");
     } else if (incoming_type == "NFC") {
       incoming_cmd = Serial1.readString();
       write_session_id(incoming_cmd);
-      Serial1.println("ACK:OK");
+      Serial1.print("ACK:OK");
     }
   }
   if (led_prog != 0) {
