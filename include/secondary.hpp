@@ -20,9 +20,11 @@ class   Secondary: public Relay
         HardwareSerial  *serial;
 
     public:
+        bool    receiveAck(uint8_t, uint16_t);
         bool    setLEDProgram(uint8_t);
         bool    setNFCId(String);
         bool    isOn(void);
+        bool    buttonPressed(void);
         Secondary(HardwareSerial *);
         ~Secondary();
 };

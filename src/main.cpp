@@ -31,7 +31,7 @@ char        *sessionId;
 const char  *uuid = "002:001:001";
 
 
-int                         get_session_id()
+bool                        get_session_id()
 {
     StaticJsonBuffer<256>   jsonUUIDBuffer;
     JsonObject              &moduleUUID = jsonUUIDBuffer.createObject();
@@ -55,19 +55,19 @@ int                         get_session_id()
         JsonObject &root = jsonUUIDBuffer.parseObject(response);
         sessionId = (char *)malloc(sizeof(char) * 32);
         if (!sessionId)
-            return (1);
+            return (false);
         strcpy(sessionId, root["moduleIDS"][0]);
         respCode = 0;
     }
     else {
         Serial.print("Failed to get the session ID. Code ");
         Serial.println(respCode);
-        return (1);
+        return (false);
     }
     // Serial.print("get_session_id(): ");
     // Serial.println(sessionId);
     http.end();
-    return (0);
+    return (true);
 }
 
 void    send_production(double value)
@@ -138,17 +138,14 @@ void    setup()
     Serial.print("Connected to the WiFi network ");
     Serial.println(ssid);
 
-    while (get_session_id())
-        delay(1000);
+    while (!get_session_id())
+        delay(500);
     Serial.print("Session id: ");
     Serial.println(sessionId);
-
     while (!secondary.setNFCId(sessionId))
         delay(50);
     Serial.println("Session Id wrote");
     secondary.setLEDProgram(9);
-
-    //delay(10000);
 }
 
 void loop()
@@ -156,6 +153,18 @@ void loop()
     delay(1000);
     read_ina219_values();
     send_production(curr_watts);
+    if (secondary.buttonPressed())
+    {
+        Serial.println("Button pressed, renewing sessionid");
+        while (!get_session_id())
+            delay(500);
+        Serial.print("New session id: ");
+        Serial.println(sessionId);
+        while (!secondary.setNFCId(sessionId))
+            delay(50);
+        Serial.println("New session Id wrote");
+        secondary.setLEDProgram(9);
+    };
     // send_production(random(0, 10));
     // nfc.setNdefFile(ndefBuf, 22);
 }

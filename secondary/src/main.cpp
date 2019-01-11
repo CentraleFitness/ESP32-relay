@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <SPI.h>
 #include <PN532_SPI.h>
@@ -9,6 +10,8 @@
 
 #define PN532_SS    10
 #define LED_DIN     9
+
+#define BUTTON_PIN  2
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -34,6 +37,9 @@ uint8_t         uid[3] = {0x12, 0x34, 0x56};
 uint8_t         ndefBuf[120];
 NdefMessage     message = NdefMessage();
 int             messageSize = 0;
+
+unsigned long   lastInterrupt;
+unsigned long   interruptTime;
 
 bool            write_session_id(String session_id)
 {
@@ -78,12 +84,28 @@ void              emulate_session_id()
   }
 }
 
+// INTERRUPT FUNCTION
+void      buttonPressed()
+{
+  interruptTime = millis();
+  if (interruptTime - lastInterrupt > 500)
+  {
+    Serial1.print("BUTTON:P");
+    lastInterrupt = interruptTime;
+  }
+}
+
 void      setup()
 {
-  Serial.begin(9600);
   Serial1.begin(9600);
   Serial1.clearWriteError();
   Serial1.flush();
+
+  // INTERRUPT
+  lastInterrupt = millis();
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonPressed, FALLING);
+
   Serial1.print("INFO:ON");
   led.turn_on();
   led.begin();
