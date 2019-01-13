@@ -32,6 +32,21 @@ void LedRing::colorWipe(uint32_t c, uint8_t wait) {
   }
 }
 
+void  LedRing::gauge(uint8_t pos)
+{
+  for (uint8_t i = 0; i < strip.numPixels() && i < pos; ++i)
+  {
+    strip.setPixelColor(
+      i, GAUGE_COLOR[(uint32_t)((float)i / (float)strip.numPixels() * 9)]);
+    strip.show();
+  }
+  for (uint8_t i = pos; i < strip.numPixels(); ++i)
+  {
+    strip.setPixelColor(i , 0);
+    strip.show();
+  }
+}
+
 void LedRing::rainbow(uint8_t wait)
 {
   uint16_t i, j;
@@ -180,6 +195,10 @@ void      LedRing::operate(uint8_t prog_num)
       this->breath(0, 0xFF, 0);
       break;
     default:
+      if (prog_num > 9)
+      {
+        this->gauge(prog_num - 10);
+      }
       break;
   }
 }

@@ -10,12 +10,15 @@
 
 #define RELAY_LED   8
 
+const uint32_t GAUGE_COLOR[] = {0x33cc33,  0x59cc33, 0x80c33, 0xa6cc33, 0xcccc33, 0xcca633, 0xcc8033, 0xcc5933, 0xcc3333, 0};
+
 class   LedRing: public Relay
 {
     public:
         void        begin();
         void        show();
         void        colorWipe(uint32_t, uint8_t);
+        void        gauge(uint8_t);
         void        rainbow(uint8_t);
         void        rainbowCycle(uint8_t);
         void        theaterChase(uint32_t, uint8_t);
