@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <cmath>
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -10,6 +11,8 @@
 #include <Adafruit_INA219.h>
 
 #include "secondary.hpp"
+
+#define LOOP_DURATION 3000
 
 /*  WiFi settings  */
 const char  *ssid = "Centrale_Fitness";
@@ -23,12 +26,17 @@ Secondary           secondary(&HSerial);
 Adafruit_INA219     ina219;
 double	            loadvoltage = 0;
 double              curr_watts = 0;
+uint32_t            gauge = 0;
+uint32_t            prev_gauge = 1;
 
 /*  API settings  */
 HTTPClient  http;
 const char  *apiKey = "5bf72d7efb56e5539cb102ee";
 char        *sessionId;
 const char  *uuid = "002:001:001";
+
+unsigned long       loopStart;
+unsigned long       loopDelta;
 
 
 bool                        get_session_id()
@@ -146,11 +154,12 @@ void    setup()
         delay(50);
     Serial.println("Session Id wrote");
     secondary.setLEDProgram(9);
+    delay(3000);
 }
 
 void loop()
 {
-    delay(1000);
+    loopStart = millis();
     read_ina219_values();
     send_production(curr_watts);
     if (secondary.buttonPressed())
@@ -164,7 +173,14 @@ void loop()
             delay(50);
         Serial.println("New session Id wrote");
         secondary.setLEDProgram(9);
+        delay(3000);
     };
-    // send_production(random(0, 10));
-    // nfc.setNdefFile(ndefBuf, 22);
+    gauge = (int)floor(curr_watts / 0.25 * 24);
+    if (gauge != prev_gauge) {
+        secondary.setLEDProgram(10 + gauge);
+        prev_gauge = gauge;
+    }
+    loopDelta = millis() - loopStart;
+    if (loopDelta < LOOP_DURATION)
+        delay(LOOP_DURATION - loopDelta);
 }
